@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Coordinate Frame Transformations (Ordered)</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #0f0f1a; color: #e0e0f0; font-family: "Segoe UI", sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+      header { background: #1a1a2e; border-bottom: 1px solid #2a2a4a; padding: 10px 20px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+      header h1 { font-size: 1.05rem; font-weight: 600; color: #a0a0ff; letter-spacing: 0.04em; }
+      .hint { font-size: 0.72rem; color: #44447a; font-style: italic; }
+      main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+      .canvas-panel { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; background: #09090f; position: relative; }
+      #cv { display: block; cursor: grab; user-select: none; }
+      #cv:active { cursor: grabbing; }
+      .side { width: 320px; flex-shrink: 0; border-left: 1px solid #2a2a4a; background: #111120; display: flex; flex-direction: column; overflow-y: auto; }
+      .card { border-bottom: 1px solid #1e1e36; padding: 11px 14px; }
+      .card-title { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #6060a0; margin-bottom: 9px; }
+
+      /* Op list */
+      .op-item { display: flex; align-items: center; gap: 4px; margin-bottom: 5px; }
+      .op-item:last-child { margin-bottom: 0; }
+      .op-badge { font-size: 0.6rem; padding: 2px 5px; border-radius: 8px; font-weight: 700; letter-spacing: 0.03em; min-width: 26px; text-align: center; flex-shrink: 0; }
+      .op-idx { font-size: 0.6rem; color: #383858; min-width: 12px; text-align: right; flex-shrink: 0; }
+      .op-slider { flex: 1; min-width: 0; accent-color: #6060dd; cursor: pointer; }
+      .op-num { width: 50px; background: #0d0d1c; border: 1px solid #303055; border-radius: 5px; color: #e0e0f0; padding: 2px 4px; font-size: 0.75rem; outline: none; text-align: center; flex-shrink: 0; }
+      .op-num:focus { border-color: #6060cc; }
+      .op-btns { display: flex; gap: 2px; flex-shrink: 0; }
+      .op-btn { width: 18px; height: 18px; border: 1px solid #2a2a4a; border-radius: 3px; background: #141428; color: #5050a0; font-size: 0.65rem; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
+      .op-btn:hover { background: #1e1e38; color: #8080c0; }
+      .op-btn.op-del { color: #704040; border-color: #3a1515; }
+      .op-btn.op-del:hover { background: #2a1010; color: #ff6060; }
+      .op-btn:disabled { opacity: 0.28; cursor: default; pointer-events: none; }
+      .ops-empty { font-size: 0.72rem; color: #3a3a60; font-style: italic; padding: 4px 0; }
+
+      .add-ops { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; padding-top: 9px; border-top: 1px solid #1a1a30; }
+      .add-op-btn { padding: 3px 8px; border-radius: 5px; font-size: 0.68rem; font-weight: 700; cursor: pointer; border: 1px solid; letter-spacing: 0.03em; }
+      .add-op-btn:hover { filter: brightness(1.25); }
+
+      /* Badge / add-btn color variants */
+      .b-tx, .add-tx { background: #3a1515; color: #ff7070; border-color: #6a2525; }
+      .b-ty, .add-ty { background: #153a15; color: #70dd70; border-color: #256a25; }
+      .b-tz, .add-tz { background: #15153a; color: #7090ff; border-color: #25256a; }
+      .b-rx, .add-rx { background: #3a1a10; color: #ffaa60; border-color: #6a3a20; }
+      .b-ry, .add-ry { background: #251530; color: #cc80ff; border-color: #452560; }
+      .b-rz, .add-rz { background: #0e2030; color: #60ccff; border-color: #1e4060; }
+
+      /* Generic controls */
+      input[type="range"] { flex: 1; accent-color: #6060dd; cursor: pointer; }
+      input[type="number"] { width: 60px; background: #0d0d1c; border: 1px solid #303055; border-radius: 5px; color: #e0e0f0; padding: 3px 5px; font-size: 0.8rem; outline: none; text-align: center; }
+      input[type="number"]:focus { border-color: #6060cc; }
+      input[type="checkbox"] { accent-color: #6060dd; width: 13px; height: 13px; cursor: pointer; }
+      .btn-row { padding: 11px 14px; display: flex; gap: 8px; }
+      .btn-anim { flex: 1; padding: 9px; background: #1e1e4a; border: 1px solid #4040aa; border-radius: 7px; color: #a0a0ff; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em; cursor: pointer; transition: background .14s, border-color .14s, color .14s; }
+      .btn-anim:hover { background: #28286a; border-color: #6060cc; color: #c0c0ff; }
+      .btn-anim.running { background: #1a3a1a; border-color: #40aa40; color: #80d080; }
+      .btn-cam { padding: 9px 11px; background: #141428; border: 1px solid #282848; border-radius: 7px; color: #5050a0; font-size: 0.82rem; cursor: pointer; transition: background .14s, color .14s; }
+      .btn-cam:hover { background: #1e1e38; color: #8080c0; }
+      .speed-row { display: flex; align-items: center; gap: 8px; }
+      .speed-lbl { font-size: 0.72rem; color: #5858a0; white-space: nowrap; }
+      .toggle-row { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+      .toggle-lbl { font-size: 0.75rem; color: #6868a8; }
+      .matrix-wrap { font-family: "Consolas", monospace; font-size: 0.73rem; color: #8080c0; line-height: 1.6; }
+      .mrow { display: flex; gap: 2px; align-items: center; }
+      .mc { width: 48px; text-align: right; color: #9ab0e8; }
+      .mc.ct { color: #e8c870; }
+      .mc.cb { color: #5050a0; }
+      .mbr { color: #383868; padding: 0 2px; font-size: 0.85rem; }
+      .mat-lbl { font-size: 0.67rem; color: #484878; margin-bottom: 5px; }
+      .screw-param { display: flex; align-items: baseline; gap: 6px; margin-bottom: 5px; font-family: 'Consolas', monospace; font-size: 0.72rem; }
+      .screw-param:last-child { margin-bottom: 0; }
+      .screw-key { color: #6868a8; min-width: 20px; font-weight: 700; flex-shrink: 0; }
+      .screw-val { color: #c0c0e8; }
+      .screw-val.vec { color: #9ab0e8; }
+      .screw-special { font-size: 0.67rem; color: #484870; font-style: italic; line-height: 1.5; margin-top: 3px; }
+      .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.77rem; color: #8888b8; }
+      .legend-row:last-child { margin-bottom: 0; }
+      .leg-sw { width: 24px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+      .theme-btn { margin-left: auto; padding: 5px 12px; font-size: 0.74rem; font-weight: 700; border: 1px solid #303060; border-radius: 6px; background: #15152a; color: #8080c0; cursor: pointer; transition: all .15s; }
+      .theme-btn:hover { background: #1e1e3a; color: #b0b0ff; border-color: #5050aa; }
+      body.light { background: #f4f4fc; color: #1a1a3a; }
+      body.light header { background: #ffffff; border-bottom-color: #d8d8ec; }
+      body.light header h1 { color: #4040b0; }
+      body.light .hint { color: #9090b8; }
+      body.light .canvas-panel { background: #e8e8f4; }
+      body.light .side { background: #fafafe; border-left-color: #d8d8ec; }
+      body.light .card { border-bottom-color: #e4e4f4; }
+      body.light .card-title { color: #7070b0; }
+      body.light .btn-anim { background: #eaeaf6; color: #5858b0; border-color: #c0c0e0; }
+      body.light .btn-anim:hover { background: #dcdcf0; color: #3838a0; border-color: #8888cc; }
+      body.light .btn-anim.running { background: #d8f0e0; border-color: #80c0a0; color: #306040; }
+      body.light .btn-cam { background: #f0f0f8; color: #7070a0; border-color: #d0d0ec; }
+      body.light .btn-cam:hover { background: #e4e4f4; color: #4040a0; }
+      body.light .op-item, body.light .matrix-wrap, body.light .screw-param { color: #224488; }
+      body.light .op-num, body.light input[type="number"] { background: #ffffff; border-color: #c0c0e0; color: #1a1a3a; }
+      body.light .op-num:focus, body.light input[type="number"]:focus { border-color: #6060cc; }
+      body.light .op-btn { background: #eaeaf6; color: #6060b0; border-color: #c0c0e0; }
+      body.light .op-btn:hover { background: #dcdcf0; color: #4040a0; border-color: #8080cc; }
+      body.light .op-btn.op-del { background: #ffe8e8; color: #cc4444; border-color: #ffaaaa; }
+      body.light .op-btn.op-del:hover { background: #ffcccc; color: #cc0000; border-color: #ff6666; }
+      body.light .add-op-btn { background: #f0f0f8; color: #7070a0; border-color: #d0d0ec; }
+      body.light .add-op-btn:hover { background: #e4e4f4; color: #4040a0; border-color: #a0a0d0; }
+      body.light .b-tx, body.light .add-tx { background: #ffe8e8; color: #cc3333; border-color: #ffaaaa; }
+      body.light .b-ty, body.light .add-ty { background: #e8ffe8; color: #228822; border-color: #aaffaa; }
+      body.light .b-tz, body.light .add-tz { background: #e8e8ff; color: #3344cc; border-color: #aaaaff; }
+      body.light .b-rx, body.light .add-rx { background: #fff0e0; color: #cc6600; border-color: #ffccaa; }
+      body.light .b-ry, body.light .add-ry { background: #f4e8ff; color: #8833cc; border-color: #d4aaff; }
+      body.light .b-rz, body.light .add-rz { background: #e0f8ff; color: #0088cc; border-color: #aaddff; }
+      body.light .toggle-lbl, body.light .speed-lbl, body.light .screw-special, body.light .ops-empty, body.light .mat-lbl { color: #8080b0; }
+      body.light .screw-key { color: #6060a0; }
+      body.light .leg-sw { border-color: #8080b0 !important; }
+      body.light .legend-row { color: #6060a0; }
+      body.light .theme-btn { border-color: #c0c0e0; background: #eaeaf6; color: #5858b0; }
+      body.light .theme-btn:hover { background: #dcdcf0; color: #3838a0; border-color: #8888cc; }
+      body.light .mc.ct { color: #cc7722; }
+      body.light .mc.cb { color: #3344aa; }
+      body.light .mbr { color: #8888c0; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>3D Coordinate Frame Transformations</h1>
+      <span class="hint">Drag to orbit · Scroll to zoom · Add &amp; reorder operations</span>
+      <button class="theme-btn" id="themeToggle">☾ Dark</button>
+    </header>
+
+    <main>
+      <div class="canvas-panel"><canvas id="cv"></canvas></div>
+
+      <aside class="side">
+        <!-- Frame Mode -->
+        <div class="card">
+          <div class="card-title">Frame Mode</div>
+          <div class="toggle-row" style="margin-top:0">
+            <input type="checkbox" id="cbFixed" />
+            <label for="cbFixed" class="toggle-lbl">Fixed (world) frame — Extrinsic</label>
+          </div>
+          <div id="modeDesc" style="font-size:.67rem;color:#484870;margin-top:6px;line-height:1.5">
+            Intrinsic: T = T₁·T₂·…·Tₙ — each op relative to the current body frame.
+          </div>
+        </div>
+
+        <!-- Transform Chain -->
+        <div class="card">
+          <div class="card-title">Transform Chain</div>
+          <div id="opsList"><div class="ops-empty">No operations — add below.</div></div>
+          <div class="add-ops">
+            <button class="add-op-btn add-tx" data-type="tx">+ Tx</button>
+            <button class="add-op-btn add-ty" data-type="ty">+ Ty</button>
+            <button class="add-op-btn add-tz" data-type="tz">+ Tz</button>
+            <button class="add-op-btn add-rx" data-type="rx">+ Rx</button>
+            <button class="add-op-btn add-ry" data-type="ry">+ Ry</button>
+            <button class="add-op-btn add-rz" data-type="rz">+ Rz</button>
+          </div>
+        </div>
+
+        <!-- Animation -->
+        <div class="card">
+          <div class="card-title">Animation</div>
+          <div class="speed-row">
+            <span class="speed-lbl">Speed</span>
+            <input type="range" id="slSpeed" min="0.5" max="5" step="0.1" value="2" style="flex:1" />
+            <input type="number" id="nSpeed" min="0.5" max="5" step="0.1" value="2" style="width:48px" />
+          </div>
+          <div class="toggle-row">
+            <input type="checkbox" id="cbAuto" checked />
+            <label for="cbAuto" class="toggle-lbl">Auto-animate on change</label>
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="btn-row">
+          <button class="btn-anim" id="btnAnim">Animate</button>
+          <button class="btn-cam" id="btnCam" title="Reset camera">⟳ Cam</button>
+        </div>
+
+        <!-- Matrix -->
+        <div class="card">
+          <div class="card-title">Transformation Matrix T</div>
+          <div class="mat-lbl" id="matLabel">T = T₁·T₂·…·Tₙ (intrinsic) — 4×4 homogeneous</div>
+          <div class="matrix-wrap" id="matDisplay"></div>
+        </div>
+
+        <!-- Screw Motion -->
+        <div class="card">
+          <div class="card-title">Screw Motion</div>
+          <div id="screwDisplay">
+            <div class="screw-special">Set a non-identity transformation to see screw parameters.</div>
+          </div>
+        </div>
+        <div class="btn-row" style="padding-top:0">
+          <button class="btn-anim" id="btnScrew">Animate Screw</button>
+        </div>
+
+        <!-- Legend -->
+        <div class="card">
+          <div class="card-title">Legend</div>
+          <div class="legend-row"><div class="leg-sw" style="background:#353555"></div>World frame {W}</div>
+          <div class="legend-row"><div class="leg-sw" style="background:#ff5050"></div>X axis (body)</div>
+          <div class="legend-row"><div class="leg-sw" style="background:#50dd50"></div>Y axis (body)</div>
+          <div class="legend-row"><div class="leg-sw" style="background:#5080ff"></div>Z axis (body)</div>
+          <div class="legend-row"><div class="leg-sw" style="border-top:2px dashed #705090;background:none;height:0;margin-top:1px"></div>Translation vector</div>
+        </div>
+      </aside>
+    </main>
+
+    <script>
+      let lightMode = false;
+      const cv = document.getElementById('cv');
+      const ctx = cv.getContext('2d');
+      const DEG = Math.PI / 180;
+
+      /* ── Camera ── */
+      let camAz = 35, camEl = 22, camDist = 8;
+      let dragging = false, dragStart = { x: 0, y: 0, az: 0, el: 0 };
+
+      function resize() {
+        const p = cv.parentElement;
+        cv.width = p.clientWidth;
+        cv.height = p.clientHeight;
+        draw();
+      }
+      window.addEventListener('resize', resize);
+
+      const cx = () => cv.width / 2;
+      const cy = () => cv.height / 2;
+      const scale = () => Math.min(cv.width, cv.height) / 13;
+
+      /* ── 3D→2D projection ── */
+      function proj(x, y, z) {
+        const az = camAz * DEG, el = camEl * DEG;
+        const x1 = x * Math.cos(az) - z * Math.sin(az);
+        const z1 = x * Math.sin(az) + z * Math.cos(az);
+        const x2 = x1;
+        const y2 = y * Math.cos(el) - z1 * Math.sin(el);
+        const z2 = y * Math.sin(el) + z1 * Math.cos(el);
+        const s = scale();
+        const f = 8 / Math.max(0.1, camDist - z2);
+        return [cx() + x2 * s * f, cy() - y2 * s * f];
+      }
+
+      const isFixed = () => document.getElementById('cbFixed').checked;
+      const isAuto  = () => document.getElementById('cbAuto').checked;
+
+      /* ── 4×4 matrix math ── */
+      function identity4() {
+        return [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+      }
+
+      function mat4mul(A, B) {
+        const C = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        for (let i = 0; i < 4; i++)
+          for (let j = 0; j < 4; j++)
+            for (let k = 0; k < 4; k++)
+              C[i][j] += A[i][k] * B[k][j];
+        return C;
+      }
+
+      function mkElem(type, val) {
+        const T = identity4();
+        switch (type) {
+          case 'tx': T[0][3] = val; break;
+          case 'ty': T[1][3] = val; break;
+          case 'tz': T[2][3] = val; break;
+          case 'rx': {
+            const c = Math.cos(val * DEG), s = Math.sin(val * DEG);
+            T[1][1] = c; T[1][2] = -s; T[2][1] = s; T[2][2] = c;
+            break;
+          }
+          case 'ry': {
+            const c = Math.cos(val * DEG), s = Math.sin(val * DEG);
+            T[0][0] = c; T[0][2] = s; T[2][0] = -s; T[2][2] = c;
+            break;
+          }
+          case 'rz': {
+            const c = Math.cos(val * DEG), s = Math.sin(val * DEG);
+            T[0][0] = c; T[0][1] = -s; T[1][0] = s; T[1][1] = c;
+            break;
+          }
+        }
+        return T;
+      }
+
+      /*
+       * Intrinsic (body frame): T = T1 · T2 · … · Tn  (post-multiply in list order)
+       * Extrinsic (world frame): T = Tn · … · T2 · T1  (pre-multiply = reverse list)
+       */
+      function computeT(useCurrent) {
+        const mats = ops.map(op => mkElem(op.type, useCurrent ? op.currentValue : op.targetValue));
+        let T = identity4();
+        if (!isFixed()) {
+          for (const M of mats) T = mat4mul(T, M);
+        } else {
+          for (const M of [...mats].reverse()) T = mat4mul(T, M);
+        }
+        return T;
+      }
+
+      function extractRT(T) {
+        return {
+          R: [[T[0][0],T[0][1],T[0][2]],[T[1][0],T[1][1],T[1][2]],[T[2][0],T[2][1],T[2][2]]],
+          origin: [T[0][3], T[1][3], T[2][3]],
+        };
+      }
+
+      /* ── Ops state ── */
+      let ops = [];
+      let nextId = 1;
+
+      const opMeta = {
+        tx: { label: 'Tx', min: -5,   max: 5,   step: 0.05, isRot: false },
+        ty: { label: 'Ty', min: -5,   max: 5,   step: 0.05, isRot: false },
+        tz: { label: 'Tz', min: -5,   max: 5,   step: 0.05, isRot: false },
+        rx: { label: 'Rx', min: -180, max: 180, step: 1,    isRot: true  },
+        ry: { label: 'Ry', min: -180, max: 180, step: 1,    isRot: true  },
+        rz: { label: 'Rz', min: -180, max: 180, step: 1,    isRot: true  },
+      };
+
+      function addOp(type) {
+        ops.push({ id: nextId++, type, currentValue: 0, targetValue: 0, fromValue: 0 });
+        renderOpsList();
+        onOpsChanged();
+      }
+
+      function removeOp(id) {
+        cancelAnim();
+        ops = ops.filter(op => op.id !== id);
+        renderOpsList();
+        onOpsChanged();
+        draw();
+      }
+
+      function moveOp(id, dir) {
+        const idx = ops.findIndex(op => op.id === id);
+        const ni = idx + dir;
+        if (ni < 0 || ni >= ops.length) return;
+        [ops[idx], ops[ni]] = [ops[ni], ops[idx]];
+        renderOpsList();
+        onOpsChanged();
+        draw();
+      }
+
+      function setOpTarget(id, value) {
+        const op = ops.find(op => op.id === id);
+        if (!op) return;
+        op.targetValue = value;
+        onOpsChanged();
+        if (isAuto()) startAnim();
+      }
+
+      function renderOpsList() {
+        const container = document.getElementById('opsList');
+        if (ops.length === 0) {
+          container.innerHTML = '<div class="ops-empty">No operations — add below.</div>';
+          return;
+        }
+        container.innerHTML = ops.map((op, idx) => {
+          const m = opMeta[op.type];
+          const upDis = idx === 0 ? 'disabled' : '';
+          const dnDis = idx === ops.length - 1 ? 'disabled' : '';
+          const disp = m.isRot ? op.targetValue.toFixed(0) : op.targetValue.toFixed(2);
+          return `<div class="op-item" data-id="${op.id}">
+            <span class="op-idx">${idx + 1}</span>
+            <span class="op-badge b-${op.type}">${m.label}</span>
+            <input type="range" class="op-slider"
+              min="${m.min}" max="${m.max}" step="${m.step}"
+              value="${op.targetValue}" data-id="${op.id}" data-role="slider" />
+            <input type="number" class="op-num"
+              min="${m.min}" max="${m.max}" step="${m.step}"
+              value="${disp}" data-id="${op.id}" data-role="num" />
+            <div class="op-btns">
+              <button class="op-btn" data-id="${op.id}" data-dir="-1" ${upDis}>↑</button>
+              <button class="op-btn" data-id="${op.id}" data-dir="1"  ${dnDis}>↓</button>
+              <button class="op-btn op-del" data-id="${op.id}" data-role="del">×</button>
+            </div>
+          </div>`;
+        }).join('');
+
+        container.querySelectorAll('[data-role="slider"]').forEach(sl => {
+          sl.addEventListener('input', () => {
+            const id = +sl.dataset.id;
+            const v  = +sl.value;
+            const op = ops.find(o => o.id === id);
+            if (!op) return;
+            const m  = opMeta[op.type];
+            const nb = container.querySelector(`[data-role="num"][data-id="${id}"]`);
+            if (nb) nb.value = m.isRot ? (+v).toFixed(0) : (+v).toFixed(2);
+            setOpTarget(id, v);
+          });
+        });
+
+        container.querySelectorAll('[data-role="num"]').forEach(nb => {
+          const sync = () => {
+            const id = +nb.dataset.id;
+            const op = ops.find(o => o.id === id);
+            if (!op) return;
+            const m = opMeta[op.type];
+            const v = Math.max(m.min, Math.min(m.max, +nb.value || 0));
+            nb.value = m.isRot ? v.toFixed(0) : v.toFixed(2);
+            const sl = container.querySelector(`[data-role="slider"][data-id="${id}"]`);
+            if (sl) sl.value = v;
+            setOpTarget(id, v);
+          };
+          nb.addEventListener('input',  sync);
+          nb.addEventListener('change', sync);
+        });
+
+        container.querySelectorAll('[data-dir]').forEach(btn => {
+          btn.addEventListener('click', () => moveOp(+btn.dataset.id, +btn.dataset.dir));
+        });
+
+        container.querySelectorAll('[data-role="del"]').forEach(btn => {
+          btn.addEventListener('click', () => removeOp(+btn.dataset.id));
+        });
+      }
+
+      /* ── Drawing primitives ── */
+      function arrow3d(p0, p1, col, lw = 2, hl = 10) {
+        const [x0, y0] = proj(...p0), [x1, y1] = proj(...p1);
+        const ang = Math.atan2(y1 - y0, x1 - x0);
+        ctx.save();
+        ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = lw; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x1, y1);
+        ctx.lineTo(x1 - hl * Math.cos(ang - 0.38), y1 - hl * Math.sin(ang - 0.38));
+        ctx.lineTo(x1 - hl * Math.cos(ang + 0.38), y1 - hl * Math.sin(ang + 0.38));
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+
+      function line3d(p0, p1, col, lw = 1, dash = []) {
+        const [x0, y0] = proj(...p0), [x1, y1] = proj(...p1);
+        ctx.save();
+        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash(dash); ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+        ctx.restore();
+      }
+
+      function dot3d(p, col, r = 5) {
+        const [sx, sy] = proj(...p);
+        ctx.save(); ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      function lbl3d(p, text, col, offx = 8, offy = 4) {
+        const [sx, sy] = proj(...p);
+        ctx.save(); ctx.font = '700 12px Consolas, monospace'; ctx.fillStyle = col;
+        ctx.fillText(text, sx + offx, sy + offy);
+        ctx.restore();
+      }
+
+      function drawGrid() {
+        const N = 5;
+        for (let i = -N; i <= N; i++) {
+          const main = i === 0;
+          const col = main 
+            ? (lightMode ? 'rgba(80,80,160,0.5)' : 'rgba(80,80,160,0.28)')
+            : (lightMode ? 'rgba(35,35,70,0.15)' : 'rgba(35,35,70,0.55)');
+          line3d([i, 0, -N], [i, 0, N], col, main ? 1.2 : 0.6);
+          line3d([-N, 0, i], [N, 0, i], col, main ? 1.2 : 0.6);
+        }
+      }
+
+      function drawWorldFrame() {
+        const L = 1.2, o = [0, 0, 0];
+        const cl = lightMode ? ['#cc4444', '#44cc44', '#4466cc'] : ['#4a2525', '#254a25', '#25254a'];
+        const tl = lightMode ? ['#882222', '#228822', '#224488'] : ['#553333', '#335533', '#333355'];
+        arrow3d(o, [L, 0, 0], cl[0], 1.5, 7);
+        arrow3d(o, [0, L, 0], cl[1], 1.5, 7);
+        arrow3d(o, [0, 0, L], cl[2], 1.5, 7);
+        lbl3d([L, 0, 0], 'Xw', tl[0], 7,   4);
+        lbl3d([0, L, 0], 'Yw', tl[1], 4,  -5);
+        lbl3d([0, 0, L], 'Zw', tl[2], -14, 4);
+        dot3d(o, lightMode ? '#8888aa' : '#303050', 3);
+        lbl3d(o, '{W}', lightMode ? '#606080' : '#404060', 6, 16);
+      }
+
+      function xformPt(R, t, v) {
+        return [
+          R[0][0]*v[0] + R[0][1]*v[1] + R[0][2]*v[2] + t[0],
+          R[1][0]*v[0] + R[1][1]*v[1] + R[1][2]*v[2] + t[1],
+          R[2][0]*v[0] + R[2][1]*v[1] + R[2][2]*v[2] + t[2],
+        ];
+      }
+
+      function drawBodyFrameFromRT(R, o) {
+        const L = 1.5;
+        if (Math.hypot(...o) > 0.02)
+          line3d([0, 0, 0], o, lightMode ? 'rgba(140,100,200,0.7)' : 'rgba(100,70,160,0.7)', 1.4, [5, 5]);
+        const px = xformPt(R, o, [L, 0, 0]);
+        const py = xformPt(R, o, [0, L, 0]);
+        const pz = xformPt(R, o, [0, 0, L]);
+        arrow3d(o, px, lightMode ? '#cc2222' : '#ff5050', 2.5, 11);
+        arrow3d(o, py, lightMode ? '#22aa22' : '#50dd50', 2.5, 11);
+        arrow3d(o, pz, lightMode ? '#2255cc' : '#5080ff', 2.5, 11);
+        lbl3d(px, 'Xb', lightMode ? '#aa3333' : '#ff8080',  7,  4);
+        lbl3d(py, 'Yb', lightMode ? '#339933' : '#80ee80',  4, -6);
+        lbl3d(pz, 'Zb', lightMode ? '#3355aa' : '#80a0ff', -14, 4);
+        const [sx, sy] = proj(...o);
+        ctx.save();
+        ctx.fillStyle = lightMode ? '#8888ee' : '#d0d0ff'; ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = lightMode ? '#ffffff' : '#09090f'; ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+        lbl3d(o, '{B}', lightMode ? '#5555aa' : '#b0b0ff', 9, 18);
+      }
+
+      function drawHUD() {
+        if (ops.length === 0) return;
+        ctx.save();
+        ctx.font = '600 11px Consolas, monospace';
+        ctx.fillStyle = lightMode ? '#6060a0' : '#404070';
+        const parts = ops.map((op, i) => {
+          const m = opMeta[op.type];
+          const v = op.currentValue;
+          return `${i+1}:${m.label}=${m.isRot ? v.toFixed(1)+'°' : v.toFixed(2)}`;
+        });
+        const rows = [];
+        for (let i = 0; i < parts.length; i += 3) rows.push(parts.slice(i, i+3).join('  '));
+        const pad = 13;
+        rows.forEach((r, i) => ctx.fillText(r, pad, cv.height - pad - (rows.length - 1 - i) * 16));
+        ctx.restore();
+      }
+
+      function drawModeBadge() {
+        const fixed = isFixed();
+        const label = fixed ? 'WORLD FRAME (extrinsic)' : 'BODY FRAME (intrinsic)';
+        const bg = fixed ? (lightMode ? 'rgba(230,200,250,0.9)' : 'rgba(60,20,80,0.82)') : (lightMode ? 'rgba(200,230,250,0.9)' : 'rgba(15,40,80,0.82)');
+        const fg = fixed ? (lightMode ? '#8030b0' : '#cc80ff') : (lightMode ? '#2070b0' : '#60c8ff');
+        ctx.save();
+        ctx.font = '700 11px Consolas, monospace';
+        const tw = ctx.measureText(label).width;
+        const pad = 8, bx = cv.width - tw - pad*2 - 14, by = 10, bw = tw + pad*2, bh = 22;
+        ctx.fillStyle = bg;
+        ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 5); ctx.fill();
+        ctx.fillStyle = fg;
+        ctx.fillText(label, bx + pad, by + 15);
+        ctx.restore();
+      }
+
+      /* ── Matrix display ── */
+      function updateMatrixRT(R, o) {
+        const rows4 = [
+          [R[0][0], R[0][1], R[0][2], o[0], false],
+          [R[1][0], R[1][1], R[1][2], o[1], false],
+          [R[2][0], R[2][1], R[2][2], o[2], false],
+          [0, 0, 0, 1, true],
+        ];
+        document.getElementById('matDisplay').innerHTML = rows4.map(([a, b, c, d, bot]) => {
+          const f = (v, isT) => bot ? (isT ? '1' : '0') : v.toFixed(3);
+          const cl = (isT) => isT ? (bot ? 'mc cb' : 'mc ct') : 'mc';
+          return `<div class="mrow">
+            <span class="mbr">|</span>
+            <span class="${cl(false)}">${f(a,false)}</span>
+            <span class="${cl(false)}">${f(b,false)}</span>
+            <span class="${cl(false)}">${f(c,false)}</span>
+            <span class="${cl(true)}">${f(d,true)}</span>
+            <span class="mbr">|</span>
+          </div>`;
+        }).join('');
+      }
+
+      /* ── Main draw ── */
+      function draw() {
+        ctx.fillStyle = lightMode ? "#eeeef6" : "#09090f";
+        ctx.fillRect(0, 0, cv.width, cv.height);
+        drawGrid();
+        drawWorldFrame();
+
+        const { R, origin } = extractRT(computeT(true));
+
+        if (screwOverride) {
+          drawBodyFrameFromRT(screwOverride.R, screwOverride.origin);
+          updateMatrixRT(screwOverride.R, screwOverride.origin);
+        } else {
+          drawBodyFrameFromRT(R, origin);
+          updateMatrixRT(R, origin);
+        }
+
+        drawScrewAxis(screwData);
+        drawHUD();
+        drawModeBadge();
+
+        const fixed = isFixed();
+        document.getElementById('modeDesc').textContent = fixed
+          ? 'Extrinsic: T = Tₙ·…·T₂·T₁ — each op about fixed world axes (list order reversed).'
+          : 'Intrinsic: T = T₁·T₂·…·Tₙ — each op relative to the current body frame.';
+        document.getElementById('matLabel').textContent = fixed
+          ? 'T = Tₙ·…·T₂·T₁ (extrinsic) — 4×4 homogeneous'
+          : 'T = T₁·T₂·…·Tₙ (intrinsic) — 4×4 homogeneous';
+      }
+
+      /* ── Easing & angle interpolation ── */
+      const ease = t => t < 0.5 ? 2*t*t : -1 + (4 - 2*t) * t;
+      const shortDelta = (a, b) => ((((b - a) % 360) + 540) % 360) - 180;
+
+      /* ── Animation ── */
+      let animRunning = false, animDur = 600, animTs = null, raf = null;
+
+      function cancelAnim() {
+        if (!animRunning) return;
+        cancelAnimationFrame(raf);
+        animRunning = false;
+        animTs = null;
+        const btn = document.getElementById('btnAnim');
+        btn.classList.remove('running');
+        btn.textContent = 'Animate';
+      }
+
+      function startAnim() {
+        cancelScrewAnim();
+        cancelAnim();
+        ops.forEach(op => { op.fromValue = op.currentValue; });
+        animDur = 1200 / (parseFloat(document.getElementById('nSpeed').value) || 2);
+        animTs = null;
+        animRunning = true;
+        const btn = document.getElementById('btnAnim');
+        btn.classList.add('running');
+        btn.textContent = 'Animating…';
+        raf = requestAnimationFrame(animStep);
+      }
+
+      function animStep(ts) {
+        if (!animTs) animTs = ts;
+        const e = ease(Math.min((ts - animTs) / animDur, 1));
+        ops.forEach(op => {
+          const from = op.fromValue;
+          const delta = opMeta[op.type].isRot
+            ? shortDelta(from, op.targetValue)
+            : (op.targetValue - from);
+          op.currentValue = from + delta * e;
+        });
+        draw();
+        if (e < 1) {
+          raf = requestAnimationFrame(animStep);
+        } else {
+          ops.forEach(op => { op.currentValue = op.targetValue; });
+          animRunning = false;
+          animTs = null;
+          document.getElementById('btnAnim').classList.remove('running');
+          document.getElementById('btnAnim').textContent = 'Animate';
+          draw();
+        }
+      }
+
+      /* ── onOpsChanged ── */
+      function onOpsChanged() {
+        cancelScrewAnim();
+        const { R, origin } = extractRT(computeT(false));
+        screwData = computeScrewFromRT(R, origin);
+        updateScrewDisplay();
+      }
+
+      /* ── Screw motion ── */
+      let screwData = null, screwOverride = null;
+      let screwRunning = false, screwRaf = null, screwTs = null;
+
+      function cross3(a, b) {
+        return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+      }
+      function dot3v(a, b) { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+
+      function computeScrewFromRT(R, t) {
+        const trR  = R[0][0] + R[1][1] + R[2][2];
+        const cosT = Math.max(-1, Math.min(1, (trR - 1) / 2));
+        const theta = Math.acos(cosT);
+        const sinT  = Math.sin(theta);
+        if (theta < 1e-6) {
+          const tLen = Math.hypot(t[0], t[1], t[2]);
+          if (tLen < 1e-6) return null;
+          return { omega: [t[0]/tLen, t[1]/tLen, t[2]/tLen], theta: 0, d: tLen, h: Infinity, q: [0,0,0], pure: 'translation' };
+        }
+        const omega = [
+          (R[2][1]-R[1][2])/(2*sinT),
+          (R[0][2]-R[2][0])/(2*sinT),
+          (R[1][0]-R[0][1])/(2*sinT),
+        ];
+        const d = dot3v(t, omega);
+        const tPerp = [t[0]-d*omega[0], t[1]-d*omega[1], t[2]-d*omega[2]];
+        const fac = sinT / (2*(1-cosT));
+        const oCTP = cross3(omega, tPerp);
+        const q = [tPerp[0]/2+fac*oCTP[0], tPerp[1]/2+fac*oCTP[1], tPerp[2]/2+fac*oCTP[2]];
+        return { omega, theta, d, h: d/theta, q, pure: false };
+      }
+
+      function rodriguezRot(omega, angle) {
+        const s = Math.sin(angle), c = Math.cos(angle), mc = 1 - c;
+        const [ox, oy, oz] = omega;
+        return [
+          [c+ox*ox*mc,    ox*oy*mc-oz*s, ox*oz*mc+oy*s],
+          [oy*ox*mc+oz*s, c+oy*oy*mc,    oy*oz*mc-ox*s],
+          [oz*ox*mc-oy*s, oz*oy*mc+ox*s, c+oz*oz*mc   ],
+        ];
+      }
+
+      function screwPoseAtTau(screw, tau) {
+        const { omega, theta, d, q, pure } = screw;
+        if (pure === 'translation') {
+          const dt = d * tau;
+          return { R: [[1,0,0],[0,1,0],[0,0,1]], origin: [omega[0]*dt, omega[1]*dt, omega[2]*dt] };
+        }
+        const angle = tau * theta;
+        const R = rodriguezRot(omega, angle);
+        const cosA = Math.cos(angle), sinA = Math.sin(angle);
+        const oCQ = cross3(omega, q);
+        const origin = [
+          (1-cosA)*q[0] + tau*d*omega[0] - sinA*oCQ[0],
+          (1-cosA)*q[1] + tau*d*omega[1] - sinA*oCQ[1],
+          (1-cosA)*q[2] + tau*d*omega[2] - sinA*oCQ[2],
+        ];
+        return { R, origin };
+      }
+
+      function drawScrewAxis(screw) {
+        if (!screw) return;
+        const { q, omega } = screw;
+        const ext = 3.5;
+        line3d(
+          [q[0]-omega[0]*ext, q[1]-omega[1]*ext, q[2]-omega[2]*ext],
+          [q[0]+omega[0]*ext, q[1]+omega[1]*ext, q[2]+omega[2]*ext],
+          'rgba(255,200,50,0.5)', 1.5, [5,4]
+        );
+        dot3d(q, '#ffc040', 4);
+        lbl3d(q, 'S', '#ffc040', 7, -5);
+      }
+
+      function updateScrewDisplay() {
+        const el = document.getElementById('screwDisplay');
+        if (!screwData) {
+          el.innerHTML = '<div class="screw-special">Identity — no screw motion.</div>';
+          return;
+        }
+        const s = screwData;
+        const sp = ' ';
+        const fv = v => v.map(x => (x >= 0 ? sp : '') + x.toFixed(3)).join(', ');
+        const fr = (v, dp = 3) => v.toFixed(dp);
+        el.innerHTML = `
+          <div class="screw-param"><span class="screw-key">θ</span><span class="screw-val">${fr(s.theta/DEG,2)}°</span></div>
+          <div class="screw-param"><span class="screw-key">ω</span><span class="screw-val vec">[${fv(s.omega)}]</span></div>
+          <div class="screw-param"><span class="screw-key">d</span><span class="screw-val">${fr(s.d)}</span></div>
+          <div class="screw-param"><span class="screw-key">h</span><span class="screw-val">${s.pure==='translation' ? '∞' : fr(s.h)+' /rad'}</span></div>
+          <div class="screw-param"><span class="screw-key">q</span><span class="screw-val vec">[${fv(s.q)}]</span></div>
+          <div class="screw-special">${s.pure==='translation' ? 'Pure translation along ω' : 'Screw axis through q along ω'}</div>`;
+      }
+
+      function cancelScrewAnim() {
+        if (!screwRunning) return;
+        cancelAnimationFrame(screwRaf);
+        screwRunning = false; screwOverride = null; screwTs = null;
+        document.getElementById('btnScrew').classList.remove('running');
+        document.getElementById('btnScrew').textContent = 'Animate Screw';
+      }
+
+      function screwAnimStep(ts) {
+        if (!screwTs) screwTs = ts;
+        const dur = 1200 / (parseFloat(document.getElementById('nSpeed').value) || 2);
+        const raw = (ts - screwTs) / dur;
+        const tau = ease(Math.min(raw, 1));
+        screwOverride = screwPoseAtTau(screwData, tau);
+        draw();
+        if (raw < 1) {
+          screwRaf = requestAnimationFrame(screwAnimStep);
+        } else {
+          ops.forEach(op => { op.currentValue = op.targetValue; });
+          screwOverride = null; screwRunning = false; screwTs = null;
+          document.getElementById('btnScrew').classList.remove('running');
+          document.getElementById('btnScrew').textContent = 'Animate Screw';
+          draw();
+        }
+      }
+
+      function startScrewAnim() {
+        const { R, origin } = extractRT(computeT(false));
+        const s = computeScrewFromRT(R, origin);
+        if (!s) return;
+        screwData = s;
+        updateScrewDisplay();
+        cancelAnim();
+        cancelScrewAnim();
+        screwRunning = true; screwTs = null;
+        document.getElementById('btnScrew').classList.add('running');
+        document.getElementById('btnScrew').textContent = 'Animating…';
+        screwRaf = requestAnimationFrame(screwAnimStep);
+      }
+
+      /* ── Event listeners ── */
+      document.querySelectorAll('.add-op-btn[data-type]').forEach(btn => {
+        btn.addEventListener('click', () => addOp(btn.dataset.type));
+      });
+
+      document.getElementById('slSpeed').addEventListener('input', function() {
+        document.getElementById('nSpeed').value = this.value;
+      });
+      document.getElementById('nSpeed').addEventListener('input', function() {
+        const v = Math.max(0.5, Math.min(5, +this.value || 2));
+        this.value = v; document.getElementById('slSpeed').value = v;
+      });
+
+      document.getElementById('btnAnim').addEventListener('click', startAnim);
+      document.getElementById('btnScrew').addEventListener('click', startScrewAnim);
+      document.getElementById('btnCam').addEventListener('click', () => {
+        camAz = 35; camEl = 22; camDist = 8; draw();
+      });
+      document.getElementById('cbFixed').addEventListener('change', () => { onOpsChanged(); draw(); });
+
+      /* ── Camera orbit (mouse) ── */
+      cv.addEventListener('mousedown', e => {
+        dragging = true;
+        dragStart = { x: e.clientX, y: e.clientY, az: camAz, el: camEl };
+      });
+      document.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        camAz = dragStart.az - (e.clientX - dragStart.x) * 0.45;
+        camEl = Math.max(-88, Math.min(88, dragStart.el + (e.clientY - dragStart.y) * 0.32));
+        draw();
+      });
+      document.addEventListener('mouseup', () => { dragging = false; });
+      cv.addEventListener('wheel', e => {
+        e.preventDefault();
+        camDist = Math.max(1.5, Math.min(22, camDist * (e.deltaY > 0 ? 1.1 : 0.9)));
+        draw();
+      }, { passive: false });
+
+      /* ── Touch orbit ── */
+      let lastTouch = null;
+      let pinchDist0 = 0;
+      cv.addEventListener('touchstart', e => {
+        if (e.touches.length === 1) {
+          lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY, az: camAz, el: camEl };
+        } else if (e.touches.length === 2) {
+          pinchDist0 = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+        }
+      }, { passive: true });
+      cv.addEventListener('touchmove', e => {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          const d = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+          if (pinchDist0 > 0) camDist = Math.max(1.5, Math.min(22, camDist * (pinchDist0 / d)));
+          pinchDist0 = d;
+          draw();
+          return;
+        }
+        if (e.touches.length !== 1 || !lastTouch) return;
+        camAz = lastTouch.az - (e.touches[0].clientX - lastTouch.x) * 0.45;
+        camEl = Math.max(-88, Math.min(88, lastTouch.el + (e.touches[0].clientY - lastTouch.y) * 0.32));
+        e.preventDefault(); draw();
+      }, { passive: false });
+      cv.addEventListener('touchend', e => {
+        if (e.touches.length < 2) pinchDist0 = 0;
+        if (e.touches.length === 0) lastTouch = null;
+      }, { passive: true });
+
+      /* ── Boot ── */
+      document.getElementById('themeToggle').addEventListener('click', (e) => {
+        lightMode = !lightMode;
+        if (lightMode) {
+          document.body.classList.add('light');
+          e.target.textContent = '☀ Light';
+        } else {
+          document.body.classList.remove('light');
+          e.target.textContent = '☾ Dark';
+        }
+        draw();
+      });
+      resize();
+      onOpsChanged();
+    </script>
+  </body>
+</html>
