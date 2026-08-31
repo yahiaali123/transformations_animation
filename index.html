@@ -12,9 +12,10 @@
       .hint { font-size: 0.72rem; color: #44447a; font-style: italic; }
       main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
       .canvas-panel { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; background: #09090f; position: relative; }
-      #cv { display: block; cursor: grab; user-select: none; }
+      #cv { display: block; cursor: grab; user-select: none; touch-action: none; }
       #cv:active { cursor: grabbing; }
       .side { width: 320px; flex-shrink: 0; border-left: 1px solid #2a2a4a; background: #111120; display: flex; flex-direction: column; overflow-y: auto; }
+      .side.side-left { border-left: none; border-right: 1px solid #2a2a4a; }
       .card { border-bottom: 1px solid #1e1e36; padding: 11px 14px; }
       .card-title { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #6060a0; margin-bottom: 9px; }
 
@@ -85,6 +86,7 @@
       body.light .hint { color: #9090b8; }
       body.light .canvas-panel { background: #e8e8f4; }
       body.light .side { background: #fafafe; border-left-color: #d8d8ec; }
+      body.light .side.side-left { border-right-color: #d8d8ec; }
       body.light .card { border-bottom-color: #e4e4f4; }
       body.light .card-title { color: #7070b0; }
       body.light .btn-anim { background: #eaeaf6; color: #5858b0; border-color: #c0c0e0; }
@@ -116,6 +118,63 @@
       body.light .mc.ct { color: #cc7722; }
       body.light .mc.cb { color: #3344aa; }
       body.light .mbr { color: #8888c0; }
+
+      /* Fixed vectors */
+      .vec-desc { font-size: 0.67rem; color: #484870; margin-bottom: 8px; line-height: 1.5; }
+      .vec-add-row { display: flex; gap: 5px; align-items: center; margin-bottom: 9px; }
+      input.vec-in { width: 44px; padding: 3px 3px; flex-shrink: 0; }
+      .add-vec { background: #302010; color: #ffcc33; border-color: #5a4020; flex-shrink: 0; }
+      .vec-item { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #1a1a30; }
+      .vec-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+      .vec-head { display: flex; align-items: center; gap: 6px; }
+      .vec-sw { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+      .vec-name { font-size: 0.72rem; color: #9ab0e8; font-weight: 700; flex: 1; min-width: 0; font-family: Consolas, monospace; overflow-wrap: anywhere; }
+      .vec-edit-row { display: flex; gap: 5px; margin: 5px 0 2px 16px; }
+      .vec-edit-row .vec-axis-lbl { font-size: 0.62rem; color: #484878; align-self: center; }
+      .vec-coords { font-family: Consolas, monospace; font-size: 0.7rem; color: #8080c0; margin-top: 4px; line-height: 1.5; padding-left: 16px; }
+      .vec-coords .lbl { color: #484878; }
+      body.light .vec-desc { color: #8080b0; }
+      body.light .add-vec { background: #fff6e0; color: #aa7700; border-color: #e0c080; }
+      body.light .vec-name { color: #224488; }
+      body.light .vec-coords { color: #5858a0; }
+      body.light .vec-coords .lbl { color: #8888b8; }
+      body.light .vec-edit-row .vec-axis-lbl { color: #8888b8; }
+      body.light .vec-item { border-bottom-color: #e4e4f4; }
+
+      /* ── Responsive: tablets ── */
+      @media (max-width: 1100px) {
+        .side { width: 270px; }
+      }
+
+      /* ── Responsive: tablets (portrait) & phones — stack panels above/below the canvas ── */
+      @media (max-width: 900px) {
+        body { height: auto; min-height: 100vh; overflow-y: auto; overflow-x: hidden; }
+        header { flex-wrap: wrap; row-gap: 6px; padding: 10px 14px; }
+        .hint { display: none; }
+        main { flex-direction: column; overflow: visible; min-height: auto; }
+        .canvas-panel { order: -1; width: 100%; flex: none; height: 58vh; min-height: 340px; }
+        .side { width: 100%; flex: none; max-height: none; overflow-y: visible; }
+        .side.side-left { border-right: none; border-bottom: 1px solid #2a2a4a; }
+        .side:not(.side-left) { border-left: none; border-top: 1px solid #2a2a4a; }
+        body.light .side.side-left { border-bottom-color: #d8d8ec; }
+        body.light .side:not(.side-left) { border-top-color: #d8d8ec; }
+
+        /* Larger touch targets */
+        .op-btn { width: 24px; height: 24px; }
+        input[type="checkbox"] { width: 16px; height: 16px; }
+        .add-op-btn, .btn-cam { padding: 6px 10px; }
+      }
+
+      /* ── Responsive: small phones ── */
+      @media (max-width: 480px) {
+        header h1 { font-size: 0.92rem; }
+        .card { padding: 10px 12px; }
+        .canvas-panel { height: 50vh; min-height: 280px; }
+        input.vec-in { width: 40px; }
+        .op-num { width: 44px; }
+        .op-slider { min-width: 50px; }
+        .btn-row { flex-wrap: wrap; }
+      }
     </style>
   </head>
   <body>
@@ -126,6 +185,45 @@
     </header>
 
     <main>
+      <aside class="side side-left">
+        <!-- Fixed Vectors -->
+        <div class="card">
+          <div class="card-title">Fixed Vector (World Frame)</div>
+          <div class="vec-desc">Define a reference point p in {W}. It is transformed by the Vector Transformation chain below, and its resulting coordinates are shown both in {W} and in the (separately) transformed frame {B}.</div>
+          <div class="vec-add-row">
+            <input type="number" id="vecX" class="vec-in" step="0.1" value="1" title="x" />
+            <input type="number" id="vecY" class="vec-in" step="0.1" value="0" title="y" />
+            <input type="number" id="vecZ" class="vec-in" step="0.1" value="0" title="z" />
+            <button class="add-op-btn add-vec" id="btnAddVec">+ Add Vector</button>
+          </div>
+          <div id="vecList"><div class="ops-empty">No vectors — add one above.</div></div>
+        </div>
+
+        <!-- Vector Transform Chain -->
+        <div class="card">
+          <div class="card-title">Vector Transformation</div>
+          <div class="toggle-row" style="margin-top:0">
+            <input type="checkbox" id="cbVecFixed" />
+            <label for="cbVecFixed" class="toggle-lbl">Fixed (world) frame — Extrinsic</label>
+          </div>
+          <div id="vecModeDesc" style="font-size:.67rem;color:#484870;margin:6px 0 9px;line-height:1.5">
+            Intrinsic: T = T₁·T₂·…·Tₙ — each op relative to the vector's current transformed position.
+          </div>
+          <div id="vecOpsList"><div class="ops-empty">No operations — add below.</div></div>
+          <div class="add-ops">
+            <button class="add-op-btn add-tx" data-type="tx" data-target="vec">+ Tx</button>
+            <button class="add-op-btn add-ty" data-type="ty" data-target="vec">+ Ty</button>
+            <button class="add-op-btn add-tz" data-type="tz" data-target="vec">+ Tz</button>
+            <button class="add-op-btn add-rx" data-type="rx" data-target="vec">+ Rx</button>
+            <button class="add-op-btn add-ry" data-type="ry" data-target="vec">+ Ry</button>
+            <button class="add-op-btn add-rz" data-type="rz" data-target="vec">+ Rz</button>
+          </div>
+        </div>
+        <div class="btn-row" style="padding-top:0">
+          <button class="btn-anim" id="btnVecAnim">Animate Vector</button>
+        </div>
+      </aside>
+
       <div class="canvas-panel"><canvas id="cv"></canvas></div>
 
       <aside class="side">
@@ -415,6 +513,266 @@
         });
       }
 
+      /* ── Vector transform chain (applied to added vectors, independent of the frame chain) ── */
+      let vecOps = [];
+      let nextVecOpId = 1;
+      const isVecFixed = () => document.getElementById('cbVecFixed').checked;
+
+      function computeVecT(useCurrent) {
+        const mats = vecOps.map(op => mkElem(op.type, useCurrent ? op.currentValue : op.targetValue));
+        let T = identity4();
+        if (!isVecFixed()) {
+          for (const M of mats) T = mat4mul(T, M);
+        } else {
+          for (const M of [...mats].reverse()) T = mat4mul(T, M);
+        }
+        return T;
+      }
+
+      function addVecOp(type) {
+        vecOps.push({ id: nextVecOpId++, type, currentValue: 0, targetValue: 0, fromValue: 0 });
+        renderVecOpsList();
+        draw();
+      }
+
+      function removeVecOp(id) {
+        cancelVecAnim();
+        vecOps = vecOps.filter(op => op.id !== id);
+        renderVecOpsList();
+        draw();
+      }
+
+      function moveVecOp(id, dir) {
+        const idx = vecOps.findIndex(op => op.id === id);
+        const ni = idx + dir;
+        if (ni < 0 || ni >= vecOps.length) return;
+        [vecOps[idx], vecOps[ni]] = [vecOps[ni], vecOps[idx]];
+        renderVecOpsList();
+        draw();
+      }
+
+      function setVecOpTarget(id, value) {
+        const op = vecOps.find(op => op.id === id);
+        if (!op) return;
+        op.targetValue = value;
+        if (isAuto()) startVecAnim(); else draw();
+      }
+
+      function renderVecOpsList() {
+        const container = document.getElementById('vecOpsList');
+        if (vecOps.length === 0) {
+          container.innerHTML = '<div class="ops-empty">No operations — add below.</div>';
+          return;
+        }
+        container.innerHTML = vecOps.map((op, idx) => {
+          const m = opMeta[op.type];
+          const upDis = idx === 0 ? 'disabled' : '';
+          const dnDis = idx === vecOps.length - 1 ? 'disabled' : '';
+          const disp = m.isRot ? op.targetValue.toFixed(0) : op.targetValue.toFixed(2);
+          return `<div class="op-item" data-id="${op.id}">
+            <span class="op-idx">${idx + 1}</span>
+            <span class="op-badge b-${op.type}">${m.label}</span>
+            <input type="range" class="op-slider"
+              min="${m.min}" max="${m.max}" step="${m.step}"
+              value="${op.targetValue}" data-id="${op.id}" data-role="vslider" />
+            <input type="number" class="op-num"
+              min="${m.min}" max="${m.max}" step="${m.step}"
+              value="${disp}" data-id="${op.id}" data-role="vnum" />
+            <div class="op-btns">
+              <button class="op-btn" data-id="${op.id}" data-dir="-1" ${upDis}>↑</button>
+              <button class="op-btn" data-id="${op.id}" data-dir="1"  ${dnDis}>↓</button>
+              <button class="op-btn op-del" data-id="${op.id}" data-role="vdel">×</button>
+            </div>
+          </div>`;
+        }).join('');
+
+        container.querySelectorAll('[data-role="vslider"]').forEach(sl => {
+          sl.addEventListener('input', () => {
+            const id = +sl.dataset.id;
+            const v  = +sl.value;
+            const op = vecOps.find(o => o.id === id);
+            if (!op) return;
+            const m  = opMeta[op.type];
+            const nb = container.querySelector(`[data-role="vnum"][data-id="${id}"]`);
+            if (nb) nb.value = m.isRot ? (+v).toFixed(0) : (+v).toFixed(2);
+            setVecOpTarget(id, v);
+          });
+        });
+
+        container.querySelectorAll('[data-role="vnum"]').forEach(nb => {
+          const sync = () => {
+            const id = +nb.dataset.id;
+            const op = vecOps.find(o => o.id === id);
+            if (!op) return;
+            const m = opMeta[op.type];
+            const v = Math.max(m.min, Math.min(m.max, +nb.value || 0));
+            nb.value = m.isRot ? v.toFixed(0) : v.toFixed(2);
+            const sl = container.querySelector(`[data-role="vslider"][data-id="${id}"]`);
+            if (sl) sl.value = v;
+            setVecOpTarget(id, v);
+          };
+          nb.addEventListener('input',  sync);
+          nb.addEventListener('change', sync);
+        });
+
+        container.querySelectorAll('[data-dir]').forEach(btn => {
+          btn.addEventListener('click', () => moveVecOp(+btn.dataset.id, +btn.dataset.dir));
+        });
+
+        container.querySelectorAll('[data-role="vdel"]').forEach(btn => {
+          btn.addEventListener('click', () => removeVecOp(+btn.dataset.id));
+        });
+      }
+
+      /* ── Vector transform animation (independent of frame animation) ── */
+      let vecAnimRunning = false, vecAnimDur = 600, vecAnimTs = null, vecRaf = null;
+
+      function cancelVecAnim() {
+        if (!vecAnimRunning) return;
+        cancelAnimationFrame(vecRaf);
+        vecAnimRunning = false;
+        vecAnimTs = null;
+        const btn = document.getElementById('btnVecAnim');
+        btn.classList.remove('running');
+        btn.textContent = 'Animate Vector';
+      }
+
+      function startVecAnim() {
+        cancelVecAnim();
+        vecOps.forEach(op => { op.fromValue = op.currentValue; });
+        vecAnimDur = 1200 / (parseFloat(document.getElementById('nSpeed').value) || 2);
+        vecAnimTs = null;
+        vecAnimRunning = true;
+        const btn = document.getElementById('btnVecAnim');
+        btn.classList.add('running');
+        btn.textContent = 'Animating…';
+        vecRaf = requestAnimationFrame(vecAnimStep);
+      }
+
+      function vecAnimStep(ts) {
+        if (!vecAnimTs) vecAnimTs = ts;
+        const e = ease(Math.min((ts - vecAnimTs) / vecAnimDur, 1));
+        vecOps.forEach(op => {
+          const from = op.fromValue;
+          const delta = opMeta[op.type].isRot
+            ? shortDelta(from, op.targetValue)
+            : (op.targetValue - from);
+          op.currentValue = from + delta * e;
+        });
+        draw();
+        if (e < 1) {
+          vecRaf = requestAnimationFrame(vecAnimStep);
+        } else {
+          vecOps.forEach(op => { op.currentValue = op.targetValue; });
+          vecAnimRunning = false;
+          vecAnimTs = null;
+          document.getElementById('btnVecAnim').classList.remove('running');
+          document.getElementById('btnVecAnim').textContent = 'Animate Vector';
+          draw();
+        }
+      }
+
+      /* ── Fixed vectors (defined in {W}, transformed by the vector chain above) ── */
+      let vectors = [];
+      let nextVecId = 1;
+      const vecPalette = ['#ffcc33', '#ff6699', '#33ddff', '#99ff66', '#ff9944', '#bb88ff', '#ff5588', '#55ffaa'];
+
+      function addVector(x, y, z) {
+        const color = vecPalette[(nextVecId - 1) % vecPalette.length];
+        vectors.push({ id: nextVecId++, x, y, z, color });
+        renderVectorsList();
+        draw();
+      }
+
+      function removeVector(id) {
+        vectors = vectors.filter(v => v.id !== id);
+        renderVectorsList();
+        draw();
+      }
+
+      // Coordinates of a point fixed in {W} as measured in {B}: p_B = R^T (p_W - o)
+      function worldToBody(R, o, p) {
+        const rel = [p[0] - o[0], p[1] - o[1], p[2] - o[2]];
+        return [
+          R[0][0]*rel[0] + R[1][0]*rel[1] + R[2][0]*rel[2],
+          R[0][1]*rel[0] + R[1][1]*rel[1] + R[2][1]*rel[2],
+          R[0][2]*rel[0] + R[1][2]*rel[1] + R[2][2]*rel[2],
+        ];
+      }
+
+      function renderVectorsList() {
+        const container = document.getElementById('vecList');
+        if (vectors.length === 0) {
+          container.innerHTML = '<div class="ops-empty">No vectors — add one above.</div>';
+          return;
+        }
+        const { R, origin } = extractRT(computeT(true));
+        const { R: Rv, origin: tv } = extractRT(computeVecT(true));
+        container.innerHTML = vectors.map((v, idx) => {
+          const pTrans = xformPt(Rv, tv, [v.x, v.y, v.z]);
+          const pB = worldToBody(R, origin, pTrans);
+          return `<div class="vec-item" data-id="${v.id}">
+            <div class="vec-head">
+              <span class="vec-sw" style="background:${v.color}"></span>
+              <span class="vec-name">V${idx+1} — reference (world)</span>
+              <button class="op-btn op-del" data-role="delvec" data-id="${v.id}">×</button>
+            </div>
+            <div class="vec-edit-row">
+              <span class="vec-axis-lbl">x</span>
+              <input type="number" class="vec-in" step="0.1" value="${v.x}" data-id="${v.id}" data-axis="x" data-role="vecedit" />
+              <span class="vec-axis-lbl">y</span>
+              <input type="number" class="vec-in" step="0.1" value="${v.y}" data-id="${v.id}" data-axis="y" data-role="vecedit" />
+              <span class="vec-axis-lbl">z</span>
+              <input type="number" class="vec-in" step="0.1" value="${v.z}" data-id="${v.id}" data-axis="z" data-role="vecedit" />
+            </div>
+            <div class="vec-coords" data-field="transformed"><span class="lbl">transformed (world):</span> [${pTrans.map(c => c.toFixed(3)).join(', ')}]</div>
+            <div class="vec-coords" data-field="inbody"><span class="lbl">in {B}:</span> [${pB.map(c => c.toFixed(3)).join(', ')}]</div>
+          </div>`;
+        }).join('');
+
+        container.querySelectorAll('[data-role="delvec"]').forEach(btn => {
+          btn.addEventListener('click', () => removeVector(+btn.dataset.id));
+        });
+
+        container.querySelectorAll('[data-role="vecedit"]').forEach(inp => {
+          const sync = () => {
+            const id = +inp.dataset.id;
+            const v = vectors.find(vv => vv.id === id);
+            if (!v) return;
+            v[inp.dataset.axis] = parseFloat(inp.value) || 0;
+            draw();
+          };
+          inp.addEventListener('input', sync);
+          inp.addEventListener('change', sync);
+        });
+      }
+
+      // Cheap per-frame refresh of just the numeric readout (avoids rebuilding DOM/listeners every animation frame)
+      function updateVectorCoords() {
+        if (vectors.length === 0) return;
+        const { R, origin } = extractRT(computeT(true));
+        const { R: Rv, origin: tv } = extractRT(computeVecT(true));
+        vectors.forEach(v => {
+          const item = document.querySelector(`.vec-item[data-id="${v.id}"]`);
+          if (!item) return;
+          const pTrans = xformPt(Rv, tv, [v.x, v.y, v.z]);
+          const pB = worldToBody(R, origin, pTrans);
+          const tEl = item.querySelector('[data-field="transformed"]');
+          const bEl = item.querySelector('[data-field="inbody"]');
+          if (tEl) tEl.innerHTML = `<span class="lbl">transformed (world):</span> [${pTrans.map(c => c.toFixed(3)).join(', ')}]`;
+          if (bEl) bEl.innerHTML = `<span class="lbl">in {B}:</span> [${pB.map(c => c.toFixed(3)).join(', ')}]`;
+        });
+      }
+
+      function drawVectors() {
+        const { R: Rv, origin: tv } = extractRT(computeVecT(true));
+        vectors.forEach((v, idx) => {
+          const p = xformPt(Rv, tv, [v.x, v.y, v.z]);
+          arrow3d([0, 0, 0], p, v.color, 2, 9);
+          lbl3d(p, 'V' + (idx + 1), v.color, 8, 4);
+        });
+      }
+
       /* ── Drawing primitives ── */
       function arrow3d(p0, p1, col, lw = 2, hl = 10) {
         const [x0, y0] = proj(...p0), [x1, y1] = proj(...p1);
@@ -579,6 +937,8 @@
         }
 
         drawScrewAxis(screwData);
+        drawVectors();
+        updateVectorCoords();
         drawHUD();
         drawModeBadge();
 
@@ -589,6 +949,11 @@
         document.getElementById('matLabel').textContent = fixed
           ? 'T = Tₙ·…·T₂·T₁ (extrinsic) — 4×4 homogeneous'
           : 'T = T₁·T₂·…·Tₙ (intrinsic) — 4×4 homogeneous';
+
+        const vecFixed = isVecFixed();
+        document.getElementById('vecModeDesc').textContent = vecFixed
+          ? 'Extrinsic: T = Tₙ·…·T₂·T₁ — each op about fixed world axes (list order reversed).'
+          : 'Intrinsic: T = T₁·T₂·…·Tₙ — each op relative to the vector\'s current transformed position.';
       }
 
       /* ── Easing & angle interpolation ── */
@@ -786,7 +1151,10 @@
 
       /* ── Event listeners ── */
       document.querySelectorAll('.add-op-btn[data-type]').forEach(btn => {
-        btn.addEventListener('click', () => addOp(btn.dataset.type));
+        btn.addEventListener('click', () => {
+          if (btn.dataset.target === 'vec') addVecOp(btn.dataset.type);
+          else addOp(btn.dataset.type);
+        });
       });
 
       document.getElementById('slSpeed').addEventListener('input', function() {
@@ -803,6 +1171,15 @@
         camAz = 35; camEl = 22; camDist = 8; draw();
       });
       document.getElementById('cbFixed').addEventListener('change', () => { onOpsChanged(); draw(); });
+      document.getElementById('cbVecFixed').addEventListener('change', () => { draw(); });
+      document.getElementById('btnVecAnim').addEventListener('click', startVecAnim);
+
+      document.getElementById('btnAddVec').addEventListener('click', () => {
+        const x = parseFloat(document.getElementById('vecX').value) || 0;
+        const y = parseFloat(document.getElementById('vecY').value) || 0;
+        const z = parseFloat(document.getElementById('vecZ').value) || 0;
+        addVector(x, y, z);
+      });
 
       /* ── Camera orbit (mouse) ── */
       cv.addEventListener('mousedown', e => {
