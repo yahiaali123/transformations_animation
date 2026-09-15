@@ -152,12 +152,13 @@
         header { flex-wrap: wrap; row-gap: 6px; padding: 10px 14px; }
         .hint { display: none; }
         main { flex-direction: column; overflow: visible; min-height: auto; }
-        .canvas-panel { order: -1; width: 100%; flex: none; height: 58vh; min-height: 340px; }
+        .canvas-panel { order: -1; width: 100%; flex: none; height: 58vh; min-height: 340px; position: sticky; top: 0; z-index: 5; box-shadow: 0 6px 14px rgba(0,0,0,0.35); }
         .side { width: 100%; flex: none; max-height: none; overflow-y: visible; }
         .side.side-left { border-right: none; border-bottom: 1px solid #2a2a4a; }
         .side:not(.side-left) { border-left: none; border-top: 1px solid #2a2a4a; }
         body.light .side.side-left { border-bottom-color: #d8d8ec; }
         body.light .side:not(.side-left) { border-top-color: #d8d8ec; }
+        body.light .canvas-panel { box-shadow: 0 6px 14px rgba(60,60,120,0.18); }
 
         /* Larger touch targets */
         .op-btn { width: 24px; height: 24px; }
@@ -177,11 +178,11 @@
       }
     </style>
   </head>
-  <body>
+  <body class="light">
     <header>
       <h1>3D Coordinate Frame Transformations</h1>
       <span class="hint">Drag to orbit · Scroll to zoom · Add &amp; reorder operations</span>
-      <button class="theme-btn" id="themeToggle">☾ Dark</button>
+      <button class="theme-btn" id="themeToggle">☀ Light</button>
     </header>
 
     <main>
@@ -304,7 +305,7 @@
     </main>
 
     <script>
-      let lightMode = false;
+      let lightMode = true;
       const cv = document.getElementById('cv');
       const ctx = cv.getContext('2d');
       const DEG = Math.PI / 180;
